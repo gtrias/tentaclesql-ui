@@ -9,13 +9,15 @@
   "main": "src/index.js",
   "license": "MIT",
   "dependencies": {
+    "@factorialco/tentaclesql": "../tentaclesql/",
     "react": "^17.0.2",
     "react-dom": "^17.0.2",
     "sql.js": "^1.5.0"
   },
   "devDependencies": {
-    "typescript": "^4.2.5",
-    "@craco/craco": "^6.2.0"
+    "@craco/craco": "^6.2.0",
+    "react-scripts": "^4.0.3",
+    "typescript": "^4.2.5"
   },
   "scripts": {
     "start": "craco start",

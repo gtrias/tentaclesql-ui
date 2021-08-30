@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react"
+import initSqlJs from "sql.js"
+import sqlWasm from "!!file-loader?name=sql-wasm.wasm!sql.js/dist/sql-wasm.wasm";
 import "./styles.css";
-import initSqlJs from "sql.js";
-
-// Required to let webpack 4 know it needs to copy the wasm file to our assets
-import sqlWasm from "!!file-loader?name=sql-wasm-[contenthash].wasm!sql.js/dist/sql-wasm.wasm";
+import tentaclesql from '@factorialco/tentaclesql'
+import databaseAdapter from './database-adapter'
 
 export default function App() {
   const [db, setDb] = useState(null);
@@ -13,12 +13,12 @@ export default function App() {
     // sql.js needs to fetch its wasm file, so we cannot immediately instantiate the database
     // without any configuration, initSqlJs will fetch the wasm files directly from the same path as the js
     // see ../craco.config.js
-    try {
-      const SQL = await initSqlJs({ locateFile: () => sqlWasm });
-      setDb(new SQL.Database());
-    } catch (err) {
-      setError(err);
-    }
+    initSqlJs({ locateFile: (filename) => sqlWasm })
+      .then((SQL) => {
+        console.log('SQL', SQL)
+        console.log('SQL.Database', SQL.Database)
+        setDb(new SQL.Database())
+      })
   }, []);
 
   if (error) return <pre>{error.toString()}</pre>;
@@ -33,13 +33,33 @@ export default function App() {
 function SQLRepl({ db }) {
   const [error, setError] = useState(null);
   const [results, setResults] = useState([]);
+  const tables = [{
+    name: 'steam_deals',
+    autodiscover: true,
+    url: 'https://www.cheapshark.com/api/1.0/deals',
+    fields: []
+  }]
 
   function exec(sql) {
     try {
-      // The sql is executed synchronously on the UI thread.
-      // You may want to use a web worker here instead
-      setResults(db.exec(sql)); // an array of objects is returned
-      setError(null);
+      tentaclesql(
+        sql,
+        {},
+        {},
+        {
+          schema: tables
+        },
+        new databaseAdapter(db)
+      ).then(data => {
+        console.log('results: ', data)
+        setResults(data);
+        // The sql is executed synchronously on the UI thread.
+        // You may want to use a web worker here instead
+        // setResults(db.exec(sql)); // an array of objects is returned
+        setError(null);
+      })
+        .catch(err => console.log(err))
+
     } catch (err) {
       // exec throws an error when the SQL statement is invalid
       setError(err);
