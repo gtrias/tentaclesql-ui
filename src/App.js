@@ -5,74 +5,72 @@ import "./styles.css";
 import tentaclesql from '@factorialco/tentaclesql'
 import databaseAdapter from './database-adapter'
 
+const tables = [{
+  name: 'steam_deals',
+  autodiscover: true,
+  url: 'https://www.cheapshark.com/api/1.0/deals',
+  fields: []
+}]
+
+async function exec(
+  sql,
+  setResults,
+  setError
+) {
+  // sql.js needs to fetch its wasm file, so we cannot immediately instantiate the database
+  // without any configuration, initSqlJs will fetch the wasm files directly from the same path as the js
+  // see ../craco.config.js
+  const dbInst = await initSqlJs({ locateFile: (filename) => sqlWasm })
+  console.log('dbInst', dbInst)
+  const db = new dbInst.Database()
+  console.log('db', db)
+
+  try {
+    tentaclesql(
+      sql,
+      {},
+      {},
+      {
+        schema: tables
+      },
+      new databaseAdapter(db)
+    ).then(data => {
+      console.log('results: ', data)
+      setResults(data);
+      // The sql is executed synchronously on the UI thread.
+      // You may want to use a web worker here instead
+      // setResults(db.exec(sql)); // an array of objects is returned
+      setError(null);
+    })
+      .catch(err => console.log(err))
+
+  } catch (err) {
+    // exec throws an error when the SQL statement is invalid
+    setError(err);
+    setResults([]);
+  }
+}
+
+
 export default function App() {
-  const [db, setDb] = useState(null);
-  const [error, setError] = useState(null);
-
-  useEffect(async () => {
-    // sql.js needs to fetch its wasm file, so we cannot immediately instantiate the database
-    // without any configuration, initSqlJs will fetch the wasm files directly from the same path as the js
-    // see ../craco.config.js
-    initSqlJs({ locateFile: (filename) => sqlWasm })
-      .then((SQL) => {
-        console.log('SQL', SQL)
-        console.log('SQL.Database', SQL.Database)
-        setDb(new SQL.Database())
-      })
-  }, []);
-
-  if (error) return <pre>{error.toString()}</pre>;
-  else if (!db) return <pre>Loading...</pre>;
-  else return <SQLRepl db={db} />;
+  return <SQLRepl />;
 }
 
 /**
  * A simple SQL read-eval-print-loop
  * @param {{db: import("sql.js").Database}} props
  */
-function SQLRepl({ db }) {
+function SQLRepl() {
   const [error, setError] = useState(null);
   const [results, setResults] = useState([]);
-  const tables = [{
-    name: 'steam_deals',
-    autodiscover: true,
-    url: 'https://www.cheapshark.com/api/1.0/deals',
-    fields: []
-  }]
-
-  function exec(sql) {
-    try {
-      tentaclesql(
-        sql,
-        {},
-        {},
-        {
-          schema: tables
-        },
-        new databaseAdapter(db)
-      ).then(data => {
-        console.log('results: ', data)
-        setResults(data);
-        // The sql is executed synchronously on the UI thread.
-        // You may want to use a web worker here instead
-        // setResults(db.exec(sql)); // an array of objects is returned
-        setError(null);
-      })
-        .catch(err => console.log(err))
-
-    } catch (err) {
-      // exec throws an error when the SQL statement is invalid
-      setError(err);
-      setResults([]);
-    }
-  }
+  if (error) return <pre>{error.toString()}</pre>;
 
   return (
     <div className="App">
       <h1>React SQL interpreter</h1>
 
       <textarea
-        onChange={(e) => exec(e.target.value)}
+        onChange={(e) => exec(e.target.value, setResults, setError)}
         placeholder="Enter some SQL. No inspiration ? Try “select sqlite_version()”"
       ></textarea>
 
